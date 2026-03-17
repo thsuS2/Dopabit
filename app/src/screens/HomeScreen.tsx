@@ -14,6 +14,7 @@ import { authStore } from '../stores/authStore';
 import { Routine, ROUTINE_CONFIGS, LEVEL_CONFIGS } from '../types';
 import DopabitCharacter from '../components/DopabitCharacter';
 import ScreenLayout from '../components/ScreenLayout';
+import { playCheck, playUncheck, playCompleteAll } from '../services/sounds';
 
 function getToday(): string {
   const d = new Date();
@@ -32,7 +33,7 @@ function getRoutineLabel(type: string): { label: string; emoji: string } {
 
 export default function HomeScreen() {
   const [routines, setRoutines] = useState<Routine[]>([]);
-  const [profile, setProfile] = useState({ level: 1, streak: 0, total_score: 0 });
+  const [profile, setProfile] = useState({ level: 1, streak: 0, total_score: 0, dopamine_energy: 0 });
   const [refreshing, setRefreshing] = useState(false);
 
   const today = getToday();
@@ -41,7 +42,7 @@ export default function HomeScreen() {
     try {
       const [routineData, profileData] = await Promise.all([
         api.get<Routine[]>(`/api/routines/today/${today}`),
-        api.get<{ level: number; streak: number; total_score: number }>('/api/records/streak'),
+        api.get<{ level: number; streak: number; total_score: number; dopamine_energy: number }>('/api/records/streak'),
       ]);
       setRoutines(routineData);
       setProfile(profileData);
@@ -60,16 +61,29 @@ export default function HomeScreen() {
 
   const toggleRoutine = async (routine: Routine) => {
     const newCompleted = !routine.completed;
-    setRoutines((prev) =>
-      prev.map((r) => (r.id === routine.id ? { ...r, completed: newCompleted } : r))
+    const updatedRoutines = routines.map((r) =>
+      r.id === routine.id ? { ...r, completed: newCompleted } : r
     );
+    setRoutines(updatedRoutines);
+
+    // 효과음
+    if (newCompleted) {
+      const allDone = updatedRoutines.every((r) => r.completed);
+      if (allDone) {
+        playCompleteAll();
+      } else {
+        playCheck();
+      }
+    } else {
+      playUncheck();
+    }
 
     try {
       await api.put('/api/routines/toggle', {
         routine_id: routine.id,
         completed: newCompleted,
       });
-      const profileData = await api.get<{ level: number; streak: number; total_score: number }>('/api/records/streak');
+      const profileData = await api.get<{ level: number; streak: number; total_score: number; dopamine_energy: number }>('/api/records/streak');
       setProfile(profileData);
     } catch {
       setRoutines((prev) =>
@@ -127,8 +141,13 @@ export default function HomeScreen() {
                   </Text>
                   <Text style={styles.nickname}>{authStore.getUser()?.nickname || '도파빗 유저'}</Text>
                 </View>
-                <View style={styles.streakBadge}>
-                  <Text style={styles.streakText}>🔥 {profile.streak}일 연속</Text>
+                <View style={styles.badgeRow}>
+                  <View style={styles.streakBadge}>
+                    <Text style={styles.streakText}>🔥 {profile.streak}일 연속</Text>
+                  </View>
+                  <View style={styles.energyBadge}>
+                    <Text style={styles.energyText}>⚡ {profile.dopamine_energy}</Text>
+                  </View>
                 </View>
               </View>
 
@@ -181,6 +200,10 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginTop: 4,
   },
+  badgeRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   streakBadge: {
     backgroundColor: colors.primaryLight + '20',
     paddingHorizontal: 12,
@@ -190,6 +213,16 @@ const styles = StyleSheet.create({
   streakText: {
     ...typography.labelSmall,
     color: colors.primary,
+  },
+  energyBadge: {
+    backgroundColor: colors.warning + '20',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  energyText: {
+    ...typography.labelSmall,
+    color: colors.warning,
   },
   scoreBar: {
     marginTop: 16,

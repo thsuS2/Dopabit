@@ -1,7 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, Image, StyleSheet, Animated } from 'react-native';
 import { colors } from '../styles/colors';
 import { typography } from '../styles/typography';
+
+const CHARACTER_IMAGES = {
+  lv1: require('../../assets/dopabit-lv1.png'),
+  lv2: require('../../assets/dopabit-lv2.png'),
+  lv3: require('../../assets/dopabit-lv3.png'),
+};
 
 interface Props {
   level: number;
@@ -9,20 +15,26 @@ interface Props {
   streak: number;
 }
 
+function getCharacterImage(level: number) {
+  if (level >= 10) return CHARACTER_IMAGES.lv3;
+  if (level >= 5) return CHARACTER_IMAGES.lv2;
+  return CHARACTER_IMAGES.lv1;
+}
+
 function getCharacterState(completedRatio: number, streak: number) {
   if (completedRatio >= 1) {
-    return { emoji: '🐰✨', mood: '완벽한 하루!', color: colors.success };
+    return { mood: '완벽한 하루!', color: colors.success };
   }
   if (completedRatio >= 0.6) {
-    return { emoji: '🐰😊', mood: '잘하고 있어!', color: colors.primary };
+    return { mood: '잘하고 있어!', color: colors.primary };
   }
   if (completedRatio >= 0.3) {
-    return { emoji: '🐰🙂', mood: '조금만 더 힘내!', color: colors.warning };
+    return { mood: '조금만 더 힘내!', color: colors.warning };
   }
   if (streak > 0) {
-    return { emoji: '🐰😴', mood: '루틴을 시작해볼까?', color: colors.textTertiary };
+    return { mood: '루틴을 시작해볼까?', color: colors.textTertiary };
   }
-  return { emoji: '🐰😢', mood: '도파빗이 기다리고 있어', color: colors.textTertiary };
+  return { mood: '도파빗이 기다리고 있어', color: colors.textTertiary };
 }
 
 function getCharacterName(level: number) {
@@ -59,14 +71,13 @@ export default function DopabitCharacter({ level, completedRatio, streak }: Prop
 
   const state = getCharacterState(completedRatio, streak);
   const name = getCharacterName(level);
+  const characterImage = getCharacterImage(level);
 
   return (
     <View style={styles.container}>
-      <Animated.Text
-        style={[styles.character, { transform: [{ translateY: bounceAnim }] }]}
-      >
-        {state.emoji}
-      </Animated.Text>
+      <Animated.View style={{ transform: [{ translateY: bounceAnim }] }}>
+        <Image source={characterImage} style={styles.characterImage} resizeMode="contain" />
+      </Animated.View>
       <Text style={styles.name}>{name}</Text>
       <Text style={[styles.mood, { color: state.color }]}>{state.mood}</Text>
     </View>
@@ -78,8 +89,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
   },
-  character: {
-    fontSize: 72,
+  characterImage: {
+    width: 120,
+    height: 120,
   },
   name: {
     ...typography.labelMedium,

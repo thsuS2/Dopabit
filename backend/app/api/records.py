@@ -38,7 +38,7 @@ async def get_streak(user_id: str = Depends(get_current_user_id)):
     supabase = get_supabase_client()
 
     profile = supabase.table("users") \
-        .select("streak, total_score, level") \
+        .select("streak, total_score, level, dopamine_energy") \
         .eq("id", user_id) \
         .single() \
         .execute()

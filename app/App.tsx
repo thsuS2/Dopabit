@@ -6,6 +6,8 @@ import TabNavigator from './src/navigation/TabNavigator';
 import LoginScreen from './src/screens/LoginScreen';
 import { authStore } from './src/stores/authStore';
 import { colors } from './src/styles/colors';
+import { initNotifications } from './src/services/notifications';
+import { initAudio } from './src/services/sounds';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -18,6 +20,9 @@ export default function App() {
       setIsLoggedIn(authStore.isLoggedIn());
       setIsLoading(false);
     });
+
+    initNotifications();
+    initAudio();
 
     return unsubscribe;
   }, []);

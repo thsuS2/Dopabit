@@ -13,6 +13,7 @@ import { typography } from '../styles/typography';
 import { api } from '../services/api';
 import { BragLog } from '../types';
 import ScreenLayout from '../components/ScreenLayout';
+import { playMessage } from '../services/sounds';
 
 interface ChatMessage {
   id: string;
@@ -77,6 +78,7 @@ export default function AICoachScreen() {
         createdAt: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, aiMsg]);
+      playMessage();
     } catch {
       const errorMsg: ChatMessage = {
         id: `error-${Date.now()}`,

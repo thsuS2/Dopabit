@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
+  Switch,
   Alert,
 } from 'react-native';
 import { colors } from '../styles/colors';
@@ -15,6 +16,11 @@ import { api } from '../services/api';
 import { authStore } from '../stores/authStore';
 import { LEVEL_CONFIGS } from '../types';
 import ScreenLayout from '../components/ScreenLayout';
+import {
+  getNotificationSettings,
+  saveNotificationSettings,
+  requestNotificationPermission,
+} from '../services/notifications';
 
 interface Profile {
   id: string;
@@ -24,6 +30,8 @@ interface Profile {
   streak: number;
   total_score: number;
 }
+
+const HOUR_OPTIONS = [6, 7, 8, 9, 10, 11, 12, 18, 19, 20, 21];
 
 function getLevelName(level: number): string {
   const found = [...LEVEL_CONFIGS].reverse().find((c) => level >= c.level);
@@ -40,6 +48,8 @@ export default function MyPageScreen() {
   const [editing, setEditing] = useState(false);
   const [nicknameInput, setNicknameInput] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [notifEnabled, setNotifEnabled] = useState(false);
+  const [notifHour, setNotifHour] = useState(9);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -51,7 +61,33 @@ export default function MyPageScreen() {
 
   useEffect(() => {
     fetchProfile();
+    loadNotificationSettings();
   }, [fetchProfile]);
+
+  const loadNotificationSettings = async () => {
+    const settings = await getNotificationSettings();
+    setNotifEnabled(settings.enabled);
+    setNotifHour(settings.hour);
+  };
+
+  const toggleNotification = async (value: boolean) => {
+    if (value) {
+      const granted = await requestNotificationPermission();
+      if (!granted) {
+        Alert.alert('알림 권한', '설정에서 알림 권한을 허용해주세요.');
+        return;
+      }
+    }
+    setNotifEnabled(value);
+    await saveNotificationSettings({ enabled: value, hour: notifHour, minute: 0 });
+  };
+
+  const changeNotifHour = async (hour: number) => {
+    setNotifHour(hour);
+    if (notifEnabled) {
+      await saveNotificationSettings({ enabled: true, hour, minute: 0 });
+    }
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -167,6 +203,43 @@ export default function MyPageScreen() {
                 <Text style={styles.statValue}>{profile.level}</Text>
                 <Text style={styles.statLabel}>레벨</Text>
               </View>
+            </View>
+
+            {/* 알림 설정 */}
+            <View style={styles.notifCard}>
+              <Text style={styles.sectionTitle}>알림 설정</Text>
+
+              <View style={styles.notifRow}>
+                <View>
+                  <Text style={styles.notifLabel}>루틴 리마인더</Text>
+                  <Text style={styles.notifDesc}>매일 정해진 시간에 알림</Text>
+                </View>
+                <Switch
+                  value={notifEnabled}
+                  onValueChange={toggleNotification}
+                  trackColor={{ false: colors.borderLight, true: colors.primary + '60' }}
+                  thumbColor={notifEnabled ? colors.primary : colors.textTertiary}
+                />
+              </View>
+
+              {notifEnabled && (
+                <View style={styles.timeSelector}>
+                  <Text style={styles.timeSelectorLabel}>알림 시간</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.timeScroll}>
+                    {HOUR_OPTIONS.map((hour) => (
+                      <TouchableOpacity
+                        key={hour}
+                        style={[styles.timeChip, notifHour === hour && styles.timeChipActive]}
+                        onPress={() => changeNotifHour(hour)}
+                      >
+                        <Text style={[styles.timeChipText, notifHour === hour && styles.timeChipTextActive]}>
+                          {hour < 12 ? `오전 ${hour}시` : hour === 12 ? '낮 12시' : `오후 ${hour - 12}시`}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
             </View>
 
             {/* 레벨 목록 */}
@@ -314,16 +387,67 @@ const styles = StyleSheet.create({
     height: 40,
     backgroundColor: colors.borderLight,
   },
-  levelListCard: {
+  notifCard: {
     backgroundColor: colors.background,
     borderRadius: 16,
     padding: 20,
     marginTop: 12,
   },
+  notifRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  notifLabel: {
+    ...typography.bodyMedium,
+    color: colors.textPrimary,
+  },
+  notifDesc: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    marginTop: 2,
+  },
+  timeSelector: {
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+    paddingTop: 16,
+  },
+  timeSelectorLabel: {
+    ...typography.labelSmall,
+    color: colors.textSecondary,
+    marginBottom: 10,
+  },
+  timeScroll: {
+    flexDirection: 'row',
+  },
+  timeChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: colors.backgroundGray,
+    marginRight: 8,
+  },
+  timeChipActive: {
+    backgroundColor: colors.primary,
+  },
+  timeChipText: {
+    ...typography.labelSmall,
+    color: colors.textSecondary,
+  },
+  timeChipTextActive: {
+    color: colors.textWhite,
+  },
   sectionTitle: {
     ...typography.labelLarge,
     color: colors.textPrimary,
     marginBottom: 12,
+  },
+  levelListCard: {
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 12,
   },
   levelRow: {
     flexDirection: 'row',

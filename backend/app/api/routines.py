@@ -81,9 +81,24 @@ async def create_routine(request: RoutineCreate, user_id: str = Depends(get_curr
 async def toggle_routine(request: RoutineToggle, user_id: str = Depends(get_current_user_id)):
     supabase = get_supabase_client()
 
+    # 루틴의 점수 조회
+    routine_result = supabase.table("routines") \
+        .select("score") \
+        .eq("id", request.routine_id) \
+        .single() \
+        .execute()
+
     result = supabase.table("routines") \
         .update({"completed": request.completed}) \
         .eq("id", request.routine_id) \
         .execute()
+
+    # 도파민 에너지 업데이트 (완료 시 +10, 취소 시 -10)
+    if routine_result.data:
+        energy_delta = 10 if request.completed else -10
+        user = supabase.table("users").select("dopamine_energy").eq("id", user_id).single().execute()
+        current_energy = user.data.get("dopamine_energy", 0) if user.data else 0
+        new_energy = max(0, current_energy + energy_delta)
+        supabase.table("users").update({"dopamine_energy": new_energy}).eq("id", user_id).execute()
 
     return result.data
